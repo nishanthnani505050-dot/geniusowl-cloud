@@ -5,6 +5,9 @@ Endpoints:
   GET  /health  -> {"status":"ok"}
   POST /talk    -> accepts WAV audio (audio/wav), returns reply WAV audio
 
+The job agent (daily matched jobs + WhatsApp applying) mounts its own routes
+under /jobagent and /whatsapp — see jobagent/routes.py.
+
 Auth: Bearer token via Authorization header.
 Device identity: X-Device-Id header (used for conversation memory).
 """
@@ -24,6 +27,18 @@ log = logging.getLogger(__name__)
 app = Flask(__name__)
 agent = CoachingAgent()
 audio = AudioPipeline()
+
+# Job agent: optional. If its config is missing we still serve the voice
+# coach rather than failing the whole deploy.
+try:
+    from jobagent.routes import bp as jobagent_bp
+    from jobagent import store as jobagent_store
+
+    jobagent_store.init_db()
+    app.register_blueprint(jobagent_bp)
+    log.info("job agent routes mounted")
+except Exception as e:
+    log.warning("job agent not mounted: %s", e)
 
 
 @app.route('/health', methods=['GET'])
